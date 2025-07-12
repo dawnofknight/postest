@@ -1,0 +1,55 @@
+{
+  "name": "bizpos",
+  "version": "1.0.0",
+  "description": "Modern Point of Sale (POS) system with Supabase integration",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "serve": "npx http-server -p 8000 -c-1",
+    "dev": "npx live-server --port=8000 --no-browser",
+    "build": "echo 'No build step required for vanilla JS app'",
+    "test": "echo 'No tests specified yet'",
+    "lint": "echo 'Consider adding ESLint for code quality'"
+  },
+  "keywords": [
+    "pos",
+    "point-of-sale",
+    "retail",
+    "supabase",
+    "javascript",
+    "vanilla-js",
+    "ecommerce",
+    "cash-register"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/bizpos.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/bizpos/issues"
+  },
+  "homepage": "https://github.com/yourusername/bizpos#readme",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "live-server": "^1.2.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "browserslist": [
+    "last 2 versions",
+    "> 1%",
+    "not dead"
+  ],
+  "files": [
+    "index.html",
+    "css/",
+    "js/",
+    "README.md"
+  ]
+}

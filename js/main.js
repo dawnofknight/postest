@@ -1,27 +1,14 @@
-// Import modules
-import {
-  products,
-  renderProducts,
-  setCategory,
-  currentCategory,
-} from "./products.js";
-import {
-  cart,
-  addToCart,
-  updateCart,
-  showCart,
-  hideCart,
-  checkout,
-  increaseQuantity,
-  decreaseQuantity,
-  removeFromCart,
-} from "./cart.js";
-
-// Import services
+// Main application entry point
+import { products, renderProducts, setCurrentCategory } from "./products.js";
+import { cart, updateCartUI } from "./cart.js";
 import { ProductService } from "./services/ProductService.js";
 import { CartService } from "./services/CartService.js";
 import { TransactionService } from "./services/TransactionService.js";
 import { AuthService } from "./services/AuthService.js";
+
+// Application state
+let isInitialized = false;
+let initializationPromise = null;
 
 // Initialize services
 const productService = new ProductService();
@@ -29,323 +16,402 @@ const cartService = new CartService();
 const transactionService = new TransactionService();
 const authService = new AuthService();
 
-// Global state
-let selectedPaymentMethod = "cash";
-
 // DOM elements
-const productGrid = document.getElementById("product-grid");
-const cartItems = document.getElementById("cart-items");
-const cartCount = document.getElementById("cart-count");
-const mobileCartCount = document.getElementById("mobile-cart-count");
-const subtotalEl = document.getElementById("subtotal");
-const taxEl = document.getElementById("tax");
-const totalEl = document.getElementById("total");
-const cartSection = document.getElementById("cart-section");
-const cartToggle = document.getElementById("cart-toggle");
-const mobileCartToggle = document.getElementById("mobile-cart-toggle");
-const closeCart = document.getElementById("close-cart");
-const checkoutBtn = document.getElementById("checkout-btn");
-const paymentModal = document.getElementById("payment-modal");
-const closePaymentModal = document.getElementById("close-payment-modal");
-const cancelPayment = document.getElementById("cancel-payment");
-const confirmPayment = document.getElementById("confirm-payment");
-const amountTendered = document.getElementById("amount-tendered");
-const changeEl = document.getElementById("change");
-const paymentMethods = document.querySelectorAll(".payment-method");
-const successMessage = document.getElementById("success-message");
-const checkoutText = document.getElementById("checkout-text");
-const checkoutSpinner = document.getElementById("checkout-spinner");
 const categoryTabs = document.querySelectorAll(".category-tab");
-const productSearch = document.querySelector(".product-search");
+const searchInput = document.getElementById("search-input");
+const subtotalElement = document.getElementById("subtotal");
+const taxElement = document.getElementById("tax");
+const totalElement = document.getElementById("total");
+const paymentAmountInput = document.getElementById("payment-amount");
+const changeElement = document.getElementById("change");
+const processPaymentBtn = document.getElementById("process-payment");
 
-// Calculate change
-function calculateChange() {
-  const total = parseFloat(totalEl.textContent.replace("$", ""));
-  const tendered = parseFloat(amountTendered.value) || 0;
-  const change = tendered - total;
+// Loading indicator functions
+function showLoading(message = "Loading...") {
+  const existingLoader = document.getElementById('app-loader');
+  if (existingLoader) return;
+  
+  const loader = document.createElement('div');
+  loader.id = 'app-loader';
+  loader.innerHTML = `
+    <div style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      color: white;
+      font-size: 18px;
+    ">
+      <div style="text-align: center;">
+        <div style="margin-bottom: 10px;">⏳</div>
+        <div>${message}</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(loader);
+}
 
-  if (change >= 0) {
-    changeEl.value = change.toFixed(2);
-  } else {
-    changeEl.value = "0.00";
+function hideLoading() {
+  const loader = document.getElementById('app-loader');
+  if (loader) {
+    loader.remove();
   }
 }
 
-// Complete payment
-async function completePayment() {
-  const total = parseFloat(totalEl.textContent.replace("$", ""));
-  const tendered = parseFloat(amountTendered.value) || 0;
+// Error handling
+function showError(message, error = null) {
+  console.error(message, error);
+  
+  const errorDiv = document.createElement('div');
+  errorDiv.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #ff4444;
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    z-index: 10000;
+    max-width: 300px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  `;
+  errorDiv.innerHTML = `
+    <div style="font-weight: bold; margin-bottom: 5px;">⚠️ Error</div>
+    <div>${message}</div>
+    <button onclick="this.parentElement.remove()" style="
+      background: none;
+      border: none;
+      color: white;
+      float: right;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 5px;
+    ">×</button>
+  `;
+  
+  document.body.appendChild(errorDiv);
+  
+  // Auto remove after 5 seconds
+  setTimeout(() => {
+    if (errorDiv.parentElement) {
+      errorDiv.remove();
+    }
+  }, 5000);
+}
 
-  if (tendered < total && selectedPaymentMethod === "cash") {
-    alert(
-      "Amount tendered must be greater than or equal to total for cash payments."
-    );
-    return;
+// Success notification
+function showSuccess(message) {
+  const successDiv = document.createElement('div');
+  successDiv.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #4CAF50;
+    color: white;
+    padding: 15px;
+    border-radius: 5px;
+    z-index: 10000;
+    max-width: 300px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  `;
+  successDiv.innerHTML = `
+    <div style="font-weight: bold; margin-bottom: 5px;">✅ Success</div>
+    <div>${message}</div>
+    <button onclick="this.parentElement.remove()" style="
+      background: none;
+      border: none;
+      color: white;
+      float: right;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 5px;
+    ">×</button>
+  `;
+  
+  document.body.appendChild(successDiv);
+  
+  // Auto remove after 3 seconds
+  setTimeout(() => {
+    if (successDiv.parentElement) {
+      successDiv.remove();
+    }
+  }, 3000);
+}
+
+
+
+// Initialize the application
+async function initializeApp() {
+  if (isInitialized || initializationPromise) {
+    return initializationPromise;
   }
+  
+  showLoading("Initializing POS System...");
+  
+  initializationPromise = (async () => {
+    try {
+      console.log("🚀 Starting POS application initialization...");
+      
+      // Initialize authentication first
+      console.log("🔐 Initializing authentication...");
+      await authService.initializeAuth();
+      
+      // Load products from service with retry
+      console.log("📦 Loading products...");
+      let loadedProducts;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          loadedProducts = await productService.fetchProducts();
+          break;
+        } catch (error) {
+          retryCount++;
+          console.warn(`Product loading attempt ${retryCount} failed:`, error);
+          if (retryCount >= maxRetries) {
+            throw new Error(`Failed to load products after ${maxRetries} attempts`);
+          }
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+      }
+      
+      // Update products array
+      products.splice(0, products.length, ...loadedProducts);
+      console.log(`✅ Loaded ${loadedProducts.length} products`);
+      
+      // Render initial products
+      renderProducts();
+      
+      // Update cart UI
+      updateCartUI();
+      
+      // Sync any pending transactions
+      console.log("🔄 Syncing pending transactions...");
+      try {
+        await transactionService.syncPendingTransactions();
+      } catch (error) {
+        console.warn("Failed to sync pending transactions:", error);
+      }
+      
+      // Setup auth state listener
+      authService.addAuthListener((user) => {
+        console.log('Auth state changed:', user ? `Logged in as ${user.email}` : 'Logged out');
+        updateUIForAuthState(user);
+      });
+      
+      isInitialized = true;
+      console.log("✅ Application initialized successfully");
+      
+    } catch (error) {
+      console.error("❌ Error initializing application:", error);
+      showError("Failed to initialize the application. Some features may not work properly.", error);
+      throw error;
+    } finally {
+      hideLoading();
+    }
+  })();
+  
+  return initializationPromise;
+}
 
-  // Show processing state
-  checkoutText.textContent = "Processing...";
-  checkoutSpinner.style.display = "inline-block";
+// Update UI based on auth state
+function updateUIForAuthState(user) {
+  // You can add auth-specific UI updates here
+  // For example, show/hide admin features based on user role
+  const userRole = authService.getUserRole();
+  
+  // Example: Show admin features for admin users
+  const adminElements = document.querySelectorAll('.admin-only');
+  adminElements.forEach(element => {
+    element.style.display = userRole === 'admin' ? 'block' : 'none';
+  });
+}
 
+// Enhanced error handling for async operations
+function handleAsyncError(operation, errorMessage) {
+  return async (...args) => {
+    try {
+      return await operation(...args);
+    } catch (error) {
+      console.error(errorMessage, error);
+      showError(errorMessage);
+      throw error;
+    }
+  };
+}
+
+// Initialize when DOM is ready
+document.addEventListener("DOMContentLoaded", initializeApp);
+
+// Category tab event listeners
+categoryTabs.forEach((tab) => {
+  tab.addEventListener("click", handleAsyncError(async () => {
+    const category = tab.dataset.category;
+    
+    // Update active tab
+    categoryTabs.forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    
+    setCurrentCategory(category);
+    renderProducts();
+  }, "Failed to switch category"));
+});
+
+// Enhanced search functionality with debouncing
+let searchTimeout;
+searchInput.addEventListener("input", (e) => {
+  const searchTerm = e.target.value;
+  
+  // Clear previous timeout
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+  }
+  
+  // Debounce search to avoid excessive calls
+  searchTimeout = setTimeout(() => {
+    try {
+      renderProducts(searchTerm);
+    } catch (error) {
+      console.error("Search error:", error);
+      showError("Search failed. Please try again.");
+    }
+  }, 300);
+});
+
+// Payment calculation with validation
+paymentAmountInput.addEventListener("input", () => {
   try {
-    // Create transaction from cart
-    const transaction = {
-      items: cartService.items,
-      subtotal: cartService.getSubtotal(),
-      tax: cartService.getTax(),
-      total: cartService.getTotal(),
-      paymentMethod: selectedPaymentMethod,
-      timestamp: new Date(),
-    };
-
-    // Save transaction
-    const result = await transactionService.saveTransaction(transaction);
-
-    if (result.success) {
-      // Clear cart
-      cartService.clear();
-
-      // Hide modals
-      paymentModal.classList.remove("active");
-      hideCart();
-
-      // Show success message
-      successMessage.classList.add("show");
-      setTimeout(() => {
-        successMessage.classList.remove("show");
-      }, 3000);
+    const paymentAmount = parseFloat(paymentAmountInput.value) || 0;
+    const total = cart.getTotal();
+    const change = Math.max(0, paymentAmount - total);
+    
+    changeElement.textContent = `$${change.toFixed(2)}`;
+    
+    // Visual feedback for sufficient payment
+    if (paymentAmount >= total && total > 0) {
+      paymentAmountInput.style.borderColor = '#4CAF50';
+      processPaymentBtn.disabled = false;
     } else {
-      alert("Transaction failed. Please try again.");
+      paymentAmountInput.style.borderColor = '#ddd';
+      processPaymentBtn.disabled = cart.items.length === 0;
     }
   } catch (error) {
-    console.error("Payment error:", error);
-    alert("An error occurred during payment. Please try again.");
-  } finally {
-    // Reset checkout button
-    checkoutText.textContent = "Checkout";
-    checkoutSpinner.style.display = "none";
+    console.error("Payment calculation error:", error);
   }
-}
+});
 
-// Render products
-async function renderProductGrid(searchTerm = "") {
-  productGrid.innerHTML = "";
-
-  // Get active category
-  const activeTab = document.querySelector(".category-tab.active");
-  const category = activeTab ? activeTab.textContent : "All Items";
-
-  // Get products
-  let products;
-  if (searchTerm) {
-    products = await productService.searchProducts(searchTerm, category);
-  } else {
-    products = await productService.getProductsByCategory(category);
-  }
-
-  // Render products
-  products.forEach((product) => {
-    const productCard = document.createElement("div");
-    productCard.className = "product-card";
-    productCard.innerHTML = `
-      <img src="${product.image}" alt="${product.name}" class="product-image">
-      <div class="product-info">
-        <div class="product-name">${product.name}</div>
-        <div class="product-price">$${product.price.toFixed(2)}</div>
-      </div>
-    `;
-    productCard.addEventListener("click", () => {
-      cartService.addItem(product);
-      showCart();
-    });
-    productGrid.appendChild(productCard);
-  });
-}
-
-// Update cart UI
-function updateCartUI(cart) {
-  cartItems.innerHTML = "";
-
+// Enhanced payment processing
+processPaymentBtn.addEventListener("click", handleAsyncError(async () => {
+  const paymentAmount = parseFloat(paymentAmountInput.value) || 0;
+  const total = cart.getTotal();
+  
+  // Validation
   if (cart.items.length === 0) {
-    cartItems.innerHTML =
-      '<div style="text-align: center; padding: 20px; color: #64748b;">Your cart is empty</div>';
-  } else {
-    cart.items.forEach((item) => {
-      const cartItem = document.createElement("div");
-      cartItem.className = "cart-item";
-      cartItem.innerHTML = `
-        <img src="${item.image}" alt="${item.name}" class="cart-item-image">
-        <div class="cart-item-details">
-          <div class="cart-item-name">${item.name}</div>
-          <div class="cart-item-price">$${item.price.toFixed(2)}</div>
-          <div class="cart-item-controls">
-            <button class="quantity-btn decrease" data-id="${
-              item.id
-            }">-</button>
-            <span>${item.quantity}</span>
-            <button class="quantity-btn increase" data-id="${
-              item.id
-            }">+</button>
-            <button class="remove-item" data-id="${item.id}">
-              <i class="fas fa-trash"></i>
-            </button>
-          </div>
-        </div>
-      `;
-      cartItems.appendChild(cartItem);
-    });
-
-    // Add event listeners to quantity buttons
-    document.querySelectorAll(".decrease").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const id = parseInt(e.target.getAttribute("data-id"));
-        cartService.decreaseQuantity(id);
-      });
-    });
-
-    document.querySelectorAll(".increase").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const id = parseInt(e.target.getAttribute("data-id"));
-        cartService.increaseQuantity(id);
-      });
-    });
-
-    document.querySelectorAll(".remove-item").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        // Get the button element (which has the data-id)
-        const button = e.target.closest(".remove-item");
-        if (!button) return;
-
-        const id = parseInt(button.getAttribute("data-id"));
-        cartService.removeItem(id);
-      });
-    });
+    showError("Cart is empty. Please add items before processing payment.");
+    return;
   }
-
-  // Update totals
-  subtotalEl.textContent = `$${cart.getSubtotal().toFixed(2)}`;
-  taxEl.textContent = `$${cart.getTax().toFixed(2)}`;
-  totalEl.textContent = `$${cart.getTotal().toFixed(2)}`;
-
-  // Update cart count
-  const itemCount = cart.getItemCount();
-  cartCount.textContent = itemCount;
-  mobileCartCount.textContent = itemCount;
-}
-
-// Show cart section
-function toggleCartVisibility() {
-  cartSection.classList.add("open");
-}
-
-// Hide cart section
-function hideCartSection() {
-  cartSection.classList.remove("open");
-}
-
-// Process checkout
-function checkout() {
-  if (cartService.items.length === 0) return;
-
-  // Show payment modal
-  paymentModal.classList.add("active");
-  amountTendered.value = "";
-  changeEl.value = "0.00";
-
-  // Focus on amount tendered
-  setTimeout(() => {
-    amountTendered.focus();
-  }, 100);
-}
-
-// Setup event listeners
-function setupEventListeners() {
-  // Cart toggle
-  cartToggle.addEventListener("click", showCart);
-  mobileCartToggle.addEventListener("click", showCart);
-  closeCart.addEventListener("click", hideCart);
-
-  // Checkout
-  checkoutBtn.addEventListener("click", checkout);
-
-  // Payment modal
-  closePaymentModal.addEventListener("click", () => {
-    paymentModal.classList.remove("active");
-  });
-
-  cancelPayment.addEventListener("click", () => {
-    paymentModal.classList.remove("active");
-  });
-
-  confirmPayment.addEventListener("click", completePayment);
-
-  // Payment method selection
-  paymentMethods.forEach((method) => {
-    method.addEventListener("click", () => {
-      paymentMethods.forEach((m) => m.classList.remove("selected"));
-      method.classList.add("selected");
-      selectedPaymentMethod = method.getAttribute("data-method");
-
-      if (selectedPaymentMethod === "cash") {
-        amountTendered.style.display = "block";
-        document.querySelector('label[for="amount-tendered"]').style.display =
-          "block";
-        changeEl.style.display = "block";
-        document.querySelector('label[for="change"]').style.display = "block";
-      } else {
-        amountTendered.style.display = "none";
-        document.querySelector('label[for="amount-tendered"]').style.display =
-          "none";
-        changeEl.style.display = "none";
-        document.querySelector('label[for="change"]').style.display = "none";
-      }
-    });
-  });
-
-  // Amount tendered input
-  amountTendered.addEventListener("input", calculateChange);
-
-  // Category tabs
-  categoryTabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      categoryTabs.forEach((t) => t.classList.remove("active"));
-      tab.classList.add("active");
-      renderProducts(productSearch.value);
-    });
-  });
-
-  // Product search
-  productSearch.addEventListener("input", () => {
-    renderProducts(productSearch.value);
-  });
-
-  // Close cart when clicking outside on desktop
-  document.addEventListener("click", (e) => {
-    if (
-      window.innerWidth >= 768 &&
-      !cartSection.contains(e.target) &&
-      !cartToggle.contains(e.target) &&
-      cartSection.classList.contains("open")
-    ) {
-      hideCart();
+  
+  if (paymentAmount < total) {
+    showError(`Insufficient payment. Required: $${total.toFixed(2)}, Received: $${paymentAmount.toFixed(2)}`);
+    paymentAmountInput.focus();
+    return;
+  }
+  
+  // Disable button to prevent double-clicks
+  processPaymentBtn.disabled = true;
+  processPaymentBtn.textContent = "Processing...";
+  
+  try {
+    // Create transaction with additional metadata
+    const transaction = {
+      items: cart.items.map(item => ({
+        ...item,
+        timestamp: new Date().toISOString()
+      })),
+      subtotal: cart.getSubtotal(),
+      tax: cart.getTax(),
+      total: cart.getTotal(),
+      paymentAmount,
+      change: paymentAmount - total,
+      timestamp: new Date().toISOString(),
+      cashier: authService.getCurrentUser()?.email || 'Unknown',
+      transactionId: `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    };
+    
+    console.log("💳 Processing payment...", transaction);
+    
+    // Save transaction
+    const result = await transactionService.saveTransaction(transaction);
+    
+    if (result.success) {
+      // Clear cart
+      cart.clear();
+      updateCartUI();
+      
+      // Reset payment form
+      paymentAmountInput.value = "";
+      changeElement.textContent = "$0.00";
+      paymentAmountInput.style.borderColor = '#ddd';
+      
+      showSuccess(`Payment processed successfully! Transaction ID: ${transaction.transactionId}`);
+      console.log("✅ Payment processed successfully", result);
+    } else {
+      throw new Error(result.error || "Unknown error occurred");
     }
-  });
-}
+  } catch (error) {
+    console.error("❌ Payment processing error:", error);
+    showError("Payment processing failed. Please try again.");
+  } finally {
+    // Re-enable button
+    processPaymentBtn.disabled = false;
+    processPaymentBtn.textContent = "Process Payment";
+  }
+}, "Payment processing failed"));
 
-// Initialize the app
-async function init() {
-  // Add cart change listener
-  cartService.addChangeListener(updateCartUI);
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  // Ctrl/Cmd + Enter to process payment
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    if (!processPaymentBtn.disabled && cart.items.length > 0) {
+      processPaymentBtn.click();
+    }
+  }
+  
+  // Escape to clear search
+  if (e.key === 'Escape') {
+    if (searchInput.value) {
+      searchInput.value = '';
+      renderProducts();
+    }
+  }
+});
 
-  // Load products
-  await productService.fetchProducts();
+// Periodic sync for offline transactions
+setInterval(async () => {
+  try {
+    await transactionService.syncPendingTransactions();
+  } catch (error) {
+    console.warn("Periodic sync failed:", error);
+  }
+}, 5 * 60 * 1000); // Every 5 minutes
 
-  // Render initial products
-  renderProducts();
+// Export for debugging
+window.POS = {
+  productService,
+  cartService,
+  transactionService,
+  authService,
+  cart,
+  products,
+  reinitialize: initializeApp
+};
 
-  // Setup event listeners
-  setupEventListeners();
-}
-
-// Run initialization when DOM is loaded
-document.addEventListener("DOMContentLoaded", init);
+console.log("🎯 POS System loaded. Access via window.POS for debugging.");
