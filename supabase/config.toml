@@ -1,0 +1,290 @@
+# Supabase Configuration for POS System
+# This file contains the configuration for your Supabase project
+# Copy this to your Supabase project root if using Supabase CLI
+
+[api]
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+port = 54323
+
+[inbucket]
+port = 54324
+
+[storage]
+file_size_limit = "50MiB"
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+enable_email_confirmations = false
+enable_sms_confirmations = false
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+
+# Provider configuration
+[auth.external.apple]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.azure]
+enabled = false
+client_id = ""
+secret = ""
+url = ""
+
+[auth.external.bitbucket]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.discord]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.facebook]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.github]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.gitlab]
+enabled = false
+client_id = ""
+secret = ""
+url = ""
+
+[auth.external.google]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.keycloak]
+enabled = false
+client_id = ""
+secret = ""
+url = ""
+
+[auth.external.linkedin]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.notion]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.twitch]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.twitter]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.slack]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.spotify]
+enabled = false
+client_id = ""
+secret = ""
+
+[auth.external.workos]
+enabled = false
+client_id = ""
+secret = ""
+url = ""
+
+[auth.external.zoom]
+enabled = false
+client_id = ""
+secret = ""
+
+# Custom configuration for POS System
+[pos_system]
+# Application specific settings
+app_name = "POS System"
+app_version = "1.0.0"
+default_currency = "USD"
+default_tax_rate = 0.10
+default_language = "en"
+
+# Business settings
+business_name = "Your Business Name"
+business_address = "123 Main St, City, State 12345"
+business_phone = "+1 (555) 123-4567"
+business_email = "contact@yourbusiness.com"
+
+# System limits
+max_transaction_items = 100
+max_daily_transactions = 10000
+low_stock_threshold = 10
+cache_duration_minutes = 30
+
+# Features
+enable_inventory_tracking = true
+enable_discount_system = true
+enable_loyalty_program = false
+enable_multi_location = false
+enable_barcode_scanning = true
+enable_receipt_printing = true
+
+# Security
+require_manager_approval_above = 1000.00
+max_discount_percentage = 50
+allow_negative_inventory = false
+require_reason_for_voids = true
+
+# Backup and sync
+auto_backup_enabled = true
+backup_frequency_hours = 24
+sync_frequency_minutes = 15
+offline_mode_enabled = true
+
+# Notifications
+enable_low_stock_alerts = true
+enable_daily_sales_reports = true
+enable_error_notifications = true
+
+# Performance
+enable_caching = true
+cache_size_mb = 100
+max_concurrent_users = 50
+api_rate_limit_per_minute = 1000
+
+# Development settings
+[development]
+enable_debug_mode = true
+log_level = "info"
+enable_sql_logging = false
+enable_performance_monitoring = true
+
+# Production settings
+[production]
+enable_debug_mode = false
+log_level = "error"
+enable_sql_logging = false
+enable_performance_monitoring = true
+force_https = true
+enable_cors = false
+
+# Database settings
+[database]
+max_connections = 100
+connection_timeout_seconds = 30
+query_timeout_seconds = 60
+enable_statement_timeout = true
+statement_timeout_seconds = 300
+
+# Storage settings
+[file_storage]
+max_file_size_mb = 10
+allowed_file_types = ["jpg", "jpeg", "png", "gif", "pdf", "csv", "xlsx"]
+image_compression_quality = 80
+auto_generate_thumbnails = true
+
+# Email settings
+[email]
+from_name = "POS System"
+from_email = "noreply@yourbusiness.com"
+reply_to = "support@yourbusiness.com"
+enable_email_receipts = true
+enable_daily_reports = true
+
+# SMS settings (if enabled)
+[sms]
+enable_sms_notifications = false
+default_country_code = "+1"
+
+# Analytics
+[analytics]
+enable_analytics = true
+track_user_behavior = true
+track_sales_patterns = true
+track_inventory_movements = true
+retention_days = 365
+
+# Integrations
+[integrations]
+enable_webhook_notifications = false
+webhook_url = ""
+webhook_secret = ""
+enable_api_access = true
+api_key_required = true
+
+# Localization
+[localization]
+default_timezone = "America/New_York"
+date_format = "MM/DD/YYYY"
+time_format = "12h"
+number_format = "en-US"
+currency_symbol = "$"
+currency_position = "before"
+
+# Receipt settings
+[receipt]
+company_logo_url = ""
+footer_message = "Thank you for your business!"
+show_barcode = true
+show_qr_code = false
+print_customer_copy = true
+print_merchant_copy = true
+
+# Inventory settings
+[inventory]
+auto_deduct_on_sale = true
+allow_backorders = false
+track_serial_numbers = false
+track_expiration_dates = false
+enable_batch_tracking = false
+
+# Reporting
+[reporting]
+enable_automated_reports = true
+daily_report_time = "23:59"
+weekly_report_day = "sunday"
+monthly_report_day = 1
+email_reports_to = ["manager@yourbusiness.com"]
+
+# Security policies
+[security]
+password_min_length = 8
+password_require_uppercase = true
+password_require_lowercase = true
+password_require_numbers = true
+password_require_symbols = false
+session_timeout_minutes = 480
+max_login_attempts = 5
+lockout_duration_minutes = 30
+
+# Audit logging
+[audit]
+enable_audit_logging = true
+log_user_actions = true
+log_data_changes = true
+log_system_events = true
+audit_retention_days = 90
